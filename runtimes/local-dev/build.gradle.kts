@@ -23,6 +23,7 @@ dependencies {
     runtimeOnly(project(":extensions:issuer-seed"))
     runtimeOnly(project(":extensions:membership-issuance-seed"))
     runtimeOnly(project(":extensions:marketpartner-issuance-seed"))
+    runtimeOnly(project(":extensions:attestation-table-definition-seed"))
 }
 
 application {

@@ -3,6 +3,7 @@ format.version = "1.1"
 
 [versions]
 edc = "0.14.0"
+rsApi = "4.0.0"
 
 [libraries]
 # edc libs
@@ -13,6 +14,11 @@ edc-ih-credentials-spi = { module = "org.eclipse.edc:verifiable-credential-spi",
 edc-ih-spi = { module = "org.eclipse.edc:identity-hub-spi", version.ref = "edc" }
 edc-did-spi = { module = "org.eclipse.edc:identity-did-spi", version.ref = "edc" }
 edc-ih-issuance-spi = { module = "org.eclipse.edc:issuerservice-issuance-spi", version.ref = "edc" }
+
+# web and api libs
+edc-spi-web = { module = "org.eclipse.edc:web-spi", version.ref = "edc" }
+edc-api-auth-spi = { module = "org.eclipse.edc:api-auth-spi", version.ref = "edc" }
+jakarta-rsApi = { module = "jakarta.ws.rs:jakarta.ws.rs-api", version.ref = "rsApi" }
 
 # BOM Modules
 bom-issuer = { module = "org.eclipse.edc:issuerservice-bom", version.ref = "edc" }
