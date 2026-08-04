@@ -40,7 +40,7 @@ public class AttestationDataService {
         this.transactionContext = transactionContext;
     }
 
-    public Result<List<Map<String, Object>>> queryMarketpartnerAttestations() {
+    public Result<List<Map<String, Object>>> queryDataAttestations(String tableName) {
         return transactionContext.execute(() -> {
             DataSource dataSource = dataSourceRegistry.resolve(dataSourceName);
             if (dataSource == null) {
@@ -49,7 +49,7 @@ public class AttestationDataService {
 
             try (var connection = dataSource.getConnection();
                     var statement = connection.createStatement();
-                    var resultSet = statement.executeQuery("SELECT * FROM marketpartner_attestations")) {
+                    var resultSet = statement.executeQuery("SELECT * FROM " + tableName)) {
 
                 var results = new ArrayList<Map<String, Object>>();
                 while (resultSet.next()) {
@@ -58,7 +58,7 @@ public class AttestationDataService {
                 return Result.success(results);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to query marketpartner_attestations: " + e.getMessage());
+                return Result.failure("Failed to query table " + tableName + ": " + e.getMessage());
             }
         });
     }

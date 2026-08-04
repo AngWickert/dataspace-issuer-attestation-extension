@@ -127,21 +127,26 @@ public class AttestationTableApiController {
     }
 
     @GET
-    @Path("/data")
-    public List<AttestationDataDto> getMarketpartnerAttestations(@PathParam("participantContextId") String participantContextId) {
-        var result = attestationDataService.queryMarketpartnerAttestations();
-
-        if (result.failed()) {
+    @Path("/table-data")
+    public List<AttestationDataDto> getDataAttestations(@PathParam("participantContextId") String participantContextId,
+                                                        @QueryParam("tableName") String tableName) {
+        if (tableName == null || tableName.isEmpty()) {
             return new ArrayList<>();
         }
 
-        return result.getContent().stream()
+        var dataResult = attestationDataService.queryDataAttestations(tableName);
+
+        if (dataResult.failed()) {
+            return new ArrayList<>();
+        }
+
+        return dataResult.getContent().stream()
                 .map(AttestationDataDto::new)
                 .collect(Collectors.toList());
     }
 
     @GET
-    @Path("/schema")
+    @Path("/table-schema")
     public TableSchemaDto getTableSchema(@PathParam("participantContextId") String participantContextId,
                                          @QueryParam("tableName") String tableName) {
         if (tableName == null || tableName.isEmpty()) {
