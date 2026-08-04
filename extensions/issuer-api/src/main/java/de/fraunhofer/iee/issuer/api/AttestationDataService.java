@@ -22,6 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -73,22 +74,30 @@ public class AttestationDataService {
             try (var connection = dataSource.getConnection()) {
                 var metaData = connection.getMetaData();
 
-                // Get column information
+                // Get column information - store with ordinal position for sorting
                 var columns = metaData.getColumns(null, null, tableName, null);
-                var schema = new HashMap<String, ColumnInfo>();
+                var columnMap = new HashMap<Integer, Map.Entry<String, ColumnInfo>>();
+
                 while (columns.next()) {
                     var columnName = columns.getString("COLUMN_NAME");
                     var dataType = columns.getString("TYPE_NAME");
                     var isNullableString = columns.getString("IS_NULLABLE");
                     var isNullable = "YES".equalsIgnoreCase(isNullableString);
                     var defaultValue = columns.getString("COLUMN_DEF");
+                    var ordinalPosition = columns.getInt("ORDINAL_POSITION");
 
-                    schema.put(columnName, new ColumnInfo(dataType, isNullable, defaultValue));
+                    columnMap.put(ordinalPosition, Map.entry(columnName, new ColumnInfo(dataType, isNullable, defaultValue)));
                 }
 
-                if (schema.isEmpty()) {
+                if (columnMap.isEmpty()) {
                     return Result.failure("Table not found or has no columns: " + tableName);
                 }
+
+                // Sort by ordinal position and build schema
+                var schema = new LinkedHashMap<String, ColumnInfo>();
+                columnMap.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> schema.put(entry.getValue().getKey(), entry.getValue().getValue()));
 
                 // Get primary keys
                 var primaryKeys = metaData.getPrimaryKeys(null, null, tableName);

@@ -14,7 +14,6 @@
 
 package de.fraunhofer.iee.issuer.api;
 
-import de.fraunhofer.iee.issuer.api.model.AttestationDataDto;
 import de.fraunhofer.iee.issuer.api.model.AttestationTableDto;
 import de.fraunhofer.iee.issuer.api.model.ColumnInfoDto;
 import de.fraunhofer.iee.issuer.api.model.TableSchemaDto;
@@ -33,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -103,14 +103,14 @@ public class AttestationTableApiController {
             if (tableName != null) {
                 // Get real schema from database
                 var schemaResult = attestationDataService.getTableSchema(tableName);
-                Map<String, Object> tableParams = new HashMap<>();
+                Map<String, Object> tableParams = new LinkedHashMap<>();
                 List<String> primaryKeys = new ArrayList<>();
 
                 if (schemaResult.succeeded()) {
                     var schema = schemaResult.getContent();
                     primaryKeys = schema.primaryKeys();
 
-                    // Convert ColumnInfo to simple name -> type map
+                    // Convert ColumnInfo to simple name -> type map - preserve order
                     for (var entry : schema.columns().entrySet()) {
                         tableParams.put(entry.getKey(), entry.getValue().dataType());
                     }
@@ -128,8 +128,8 @@ public class AttestationTableApiController {
 
     @GET
     @Path("/table-data")
-    public List<AttestationDataDto> getDataAttestations(@PathParam("participantContextId") String participantContextId,
-                                                        @QueryParam("tableName") String tableName) {
+    public List<Map<String, Object>> getDataAttestations(@PathParam("participantContextId") String participantContextId,
+                                                         @QueryParam("tableName") String tableName) {
         if (tableName == null || tableName.isEmpty()) {
             return new ArrayList<>();
         }
@@ -140,9 +140,7 @@ public class AttestationTableApiController {
             return new ArrayList<>();
         }
 
-        return dataResult.getContent().stream()
-                .map(AttestationDataDto::new)
-                .collect(Collectors.toList());
+        return dataResult.getContent();
     }
 
     @GET
@@ -163,7 +161,7 @@ public class AttestationTableApiController {
 
         var schemaResult = result.getContent();
 
-        // Convert ColumnInfo to ColumnInfoDto
+        // Convert ColumnInfo to ColumnInfoDto - preserve order with LinkedHashMap
         var columnDtos = schemaResult.columns().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -171,7 +169,9 @@ public class AttestationTableApiController {
                                 entry.getValue().dataType(),
                                 entry.getValue().isNullable(),
                                 entry.getValue().defaultValue()
-                        )
+                        ),
+                        (v1, v2) -> v1,
+                        LinkedHashMap::new
                 ));
 
         return new TableSchemaDto(tableName, columnDtos, schemaResult.primaryKeys());
