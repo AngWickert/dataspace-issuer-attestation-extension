@@ -12,13 +12,11 @@
  *
  */
 
-plugins {
-    `java-library`
-}
+package de.fraunhofer.iee.issuer.api.model;
 
-dependencies {
-    implementation(libs.edc.ih.spi)
-    implementation(libs.edc.ih.issuance.spi)
-    implementation(libs.jakarta.rsApi)
-    compileOnly(libs.edc.spi.web)
+public record ColumnInfoDto(
+        String dataType,
+        boolean isNullable,
+        String defaultValue
+) {
 }

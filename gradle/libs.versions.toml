@@ -14,11 +14,17 @@ edc-ih-credentials-spi = { module = "org.eclipse.edc:verifiable-credential-spi",
 edc-ih-spi = { module = "org.eclipse.edc:identity-hub-spi", version.ref = "edc" }
 edc-did-spi = { module = "org.eclipse.edc:identity-did-spi", version.ref = "edc" }
 edc-ih-issuance-spi = { module = "org.eclipse.edc:issuerservice-issuance-spi", version.ref = "edc" }
+edc-lib-core = { module = "org.eclipse.edc:core-lib", version.ref = "edc" }
 
 # web and api libs
 edc-spi-web = { module = "org.eclipse.edc:web-spi", version.ref = "edc" }
+edc-spi-core = { module = "org.eclipse.edc:core-spi", version.ref = "edc" }
 edc-api-auth-spi = { module = "org.eclipse.edc:api-auth-spi", version.ref = "edc" }
 jakarta-rsApi = { module = "jakarta.ws.rs:jakarta.ws.rs-api", version.ref = "rsApi" }
+
+# transaction libs
+edc-transaction-spi = { module = "org.eclipse.edc:transaction-spi", version.ref = "edc" }
+edc-transaction-datasource-spi = { module = "org.eclipse.edc:transaction-datasource-spi", version.ref = "edc" }
 
 # BOM Modules
 bom-issuer = { module = "org.eclipse.edc:issuerservice-bom", version.ref = "edc" }

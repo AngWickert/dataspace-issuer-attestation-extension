@@ -18,8 +18,11 @@ import org.eclipse.edc.identityhub.spi.webcontext.IdentityHubApiContext;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
 import org.eclipse.edc.runtime.metamodel.annotation.Extension;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
+import org.eclipse.edc.runtime.metamodel.annotation.Setting;
 import org.eclipse.edc.spi.system.ServiceExtension;
 import org.eclipse.edc.spi.system.ServiceExtensionContext;
+import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
+import org.eclipse.edc.transaction.spi.TransactionContext;
 import org.eclipse.edc.web.spi.WebService;
 
 @Extension(value = "Attestation Table API Extension")
@@ -27,11 +30,20 @@ public class AttestationTableApiExtension implements ServiceExtension {
 
     public static final String NAME = "Attestation Table API Extension";
 
+    @Setting(description = "The datasource to be used for attestation data queries", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.attestationdata.datasource")
+    private String dataSourceName;
+
     @Inject
     private WebService webService;
 
     @Inject
     private AttestationDefinitionService attestationDefinitionService;
+
+    @Inject
+    private DataSourceRegistry dataSourceRegistry;
+
+    @Inject
+    private TransactionContext transactionContext;
 
     @Override
     public String name() {
@@ -40,8 +52,16 @@ public class AttestationTableApiExtension implements ServiceExtension {
 
     @Override
     public void initialize(ServiceExtensionContext context) {
-        var controller = new AttestationTableApiController(attestationDefinitionService);
+        var attestationDataService = new AttestationDataService(
+                dataSourceRegistry,
+                dataSourceName,
+                transactionContext
+        );
+
+        var controller = new AttestationTableApiController(attestationDefinitionService, attestationDataService);
         webService.registerResource(IdentityHubApiContext.ISSUERADMIN, controller);
         context.getMonitor().info("Attestation Table API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables");
+        context.getMonitor().info("Attestation Table Data API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables/data");
+        context.getMonitor().info("Attestation Table Schema API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables/schema?tableName=<table>");
     }
 }
