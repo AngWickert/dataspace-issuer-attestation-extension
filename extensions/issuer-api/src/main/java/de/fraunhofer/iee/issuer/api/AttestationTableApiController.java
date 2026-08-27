@@ -16,14 +16,13 @@ package de.fraunhofer.iee.issuer.api;
 
 import de.fraunhofer.iee.issuer.api.model.AttestationTableDto;
 import de.fraunhofer.iee.issuer.api.model.ColumnInfoDto;
+import de.fraunhofer.iee.issuer.api.model.InsertDataRequestDto;
+import de.fraunhofer.iee.issuer.api.model.DeleteDataRequestDto;
+import de.fraunhofer.iee.issuer.api.model.UpdateDataRequestDto;
 import de.fraunhofer.iee.issuer.api.model.TableSchemaDto;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
+import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 
@@ -45,11 +44,13 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 public class AttestationTableApiController {
 
     private final AttestationDefinitionService attestationDefinitionService;
+    private final CredentialDefinitionService credentialDefinitionService;
     private final AttestationDataService attestationDataService;
 
-    public AttestationTableApiController(AttestationDefinitionService attestationDefinitionService,
-                                        AttestationDataService attestationDataService) {
+    public AttestationTableApiController(AttestationDefinitionService attestationDefinitionService, CredentialDefinitionService credentialDefinitionService,
+                                         AttestationDataService attestationDataService) {
         this.attestationDefinitionService = attestationDefinitionService;
+        this.credentialDefinitionService = credentialDefinitionService;
         this.attestationDataService = attestationDataService;
     }
 
@@ -76,6 +77,9 @@ public class AttestationTableApiController {
 
         var attestations = queryResult.getContent();
         var result = new ArrayList<AttestationTableDto>();
+
+        // Get all used attestation IDs
+        var usedAttestationIds = getUsedAttestationIds(criterionParticipant);
 
         for (var attestation : attestations) {
             var config = attestation.getConfiguration();
@@ -119,7 +123,11 @@ public class AttestationTableApiController {
                     tableParams.put("error", "Failed to retrieve schema: " + schemaResult.getFailureDetail());
                 }
 
-                result.add(new AttestationTableDto(tableName, idColumn, dataSourceName, tableParams, primaryKeys));
+                // Set AttestationTable to active when it's used in a Credential Definition
+                var attestationId = attestation.getId();
+                var active = usedAttestationIds.contains(attestationId);
+
+                result.add(new AttestationTableDto(tableName, idColumn, dataSourceName, tableParams, primaryKeys, active));
             }
         }
 
@@ -142,6 +150,115 @@ public class AttestationTableApiController {
 
         return dataResult.getContent();
     }
+
+    @POST
+    @Path("table-data")
+    public Map<String, Object> setDataAttestations(@PathParam("participantContextId") String participantContextId,
+                                                   InsertDataRequestDto request) {
+        if (request == null || request.tableName() == null || request.tableName().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "tableName is required"
+            );
+        }
+
+        if (request.data() == null || request.data().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "data is required"
+            );
+        }
+
+        var result = attestationDataService.setDataAttestations(request.tableName(), request.data());
+
+        if (result.succeeded()) {
+            return Map.of(
+                    "success", true,
+                    "message", result.getContent()
+            );
+        } else {
+            return Map.of(
+                    "success", false,
+                    "message", result.getFailureDetail()
+            );
+        }
+    }
+
+    @POST
+    @Path("table-data/delete")
+    public Map<String, Object> deleteDataAttestations(@PathParam("participantContextId") String participantContextId,
+                                                      DeleteDataRequestDto request) {
+        if (request == null || request.tableName() == null || request.tableName().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "tableName is required"
+            );
+        }
+
+        if (request.ids() == null || request.ids().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "ids are required"
+            );
+        }
+
+        var result = attestationDataService.deleteDataAttestations(request.tableName(), request.ids());
+
+        if (result.succeeded()) {
+            return Map.of(
+                    "success", true,
+                    "message", result.getContent()
+            );
+        } else {
+            return Map.of(
+                    "success", false,
+                    "message", result.getFailureDetail()
+            );
+        }
+    }
+
+    @PUT
+    @Path("/table-data")
+    public Map<String, Object> setDataAttestations(@PathParam("participantContextId") String participantContextId, UpdateDataRequestDto request) {
+
+        if (request == null || request.tableName() == null || request.tableName().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "tableName is required"
+            );
+        }
+
+        if (request.ids() == null || request.ids().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "ids are required"
+            );
+        }
+
+        if (request.data() == null || request.data().isEmpty()) {
+            return Map.of(
+                    "success", false,
+                    "message", "data is required"
+            );
+        }
+
+        var result = attestationDataService.updateDataAttestations(request.tableName(), request.ids(), request.data());
+
+        if (result.succeeded()) {
+            return Map.of(
+                    "success", true,
+                    "message", result.getContent()
+            );
+        } else {
+            return Map.of(
+                    "success", false,
+                    "message", result.getFailureDetail()
+            );
+        }
+
+
+    }
+
 
     @GET
     @Path("/table-schema")
@@ -175,5 +292,25 @@ public class AttestationTableApiController {
                 ));
 
         return new TableSchemaDto(tableName, columnDtos, schemaResult.primaryKeys());
+    }
+
+    private List<String> getUsedAttestationIds(Criterion criterionParticipant) {
+        List<String> result = new ArrayList<>();
+
+        var querySpec = QuerySpec.Builder.newInstance()
+                .filter(criterionParticipant)
+                .build();
+
+        var queryResult = credentialDefinitionService.queryCredentialDefinitions(querySpec);
+
+        if (queryResult.succeeded()) {
+
+            var defs = queryResult.getContent();
+            for (var def : defs) {
+                var attestations = def.getAttestations();
+                result.addAll(attestations);
+            }
+        }
+        return result;
     }
 }

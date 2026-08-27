@@ -12,4 +12,5 @@
 #
 #
 
+de.fraunhofer.iee.issuer.api.AttestationApiExtension
 de.fraunhofer.iee.issuer.api.AttestationTableApiExtension

@@ -16,6 +16,7 @@ package de.fraunhofer.iee.issuer.api;
 
 import org.eclipse.edc.identityhub.spi.webcontext.IdentityHubApiContext;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
+import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.runtime.metamodel.annotation.Extension;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
 import org.eclipse.edc.runtime.metamodel.annotation.Setting;
@@ -30,7 +31,7 @@ public class AttestationTableApiExtension implements ServiceExtension {
 
     public static final String NAME = "Attestation Table API Extension";
 
-    @Setting(description = "The datasource to be used for attestation data queries", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.attestationdata.datasource")
+    @Setting(description = "The datasource to be used for attestation data queries", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.attestation.datasource")
     private String dataSourceName;
 
     @Inject
@@ -38,6 +39,9 @@ public class AttestationTableApiExtension implements ServiceExtension {
 
     @Inject
     private AttestationDefinitionService attestationDefinitionService;
+
+    @Inject
+    private CredentialDefinitionService credentialDefinitionService;
 
     @Inject
     private DataSourceRegistry dataSourceRegistry;
@@ -58,7 +62,7 @@ public class AttestationTableApiExtension implements ServiceExtension {
                 transactionContext
         );
 
-        var controller = new AttestationTableApiController(attestationDefinitionService, attestationDataService);
+        var controller = new AttestationTableApiController(attestationDefinitionService, credentialDefinitionService, attestationDataService);
         webService.registerResource(IdentityHubApiContext.ISSUERADMIN, controller);
         context.getMonitor().info("Attestation Table API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables");
         context.getMonitor().info("Attestation Table Data API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables/table-data?tableName=<table>");

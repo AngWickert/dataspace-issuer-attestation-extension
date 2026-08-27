@@ -22,6 +22,7 @@ public record AttestationTableDto(
         String idColumn,
         String dataSourceName,
         Map<String, Object> tableParams,
-        List<String> primaryKeys
+        List<String> primaryKeys,
+        boolean active
 ) {
 }
