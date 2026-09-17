@@ -19,6 +19,7 @@ import java.util.Map;
 
 public record TableSchemaDto(
         String tableName,
+        String idColumn,
         Map<String, ColumnInfoDto> columns,
         List<String> primaryKeys
 ) {

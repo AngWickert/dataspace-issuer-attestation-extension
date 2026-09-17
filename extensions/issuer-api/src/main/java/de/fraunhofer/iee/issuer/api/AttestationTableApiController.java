@@ -22,7 +22,6 @@ import de.fraunhofer.iee.issuer.api.model.UpdateDataRequestDto;
 import de.fraunhofer.iee.issuer.api.model.TableSchemaDto;
 import jakarta.ws.rs.*;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
-import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 
@@ -30,7 +29,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,14 +42,15 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 public class AttestationTableApiController {
 
     private final AttestationDefinitionService attestationDefinitionService;
-    private final CredentialDefinitionService credentialDefinitionService;
     private final AttestationDataService attestationDataService;
+    private final AttestationService attestationService;
 
-    public AttestationTableApiController(AttestationDefinitionService attestationDefinitionService, CredentialDefinitionService credentialDefinitionService,
-                                         AttestationDataService attestationDataService) {
+    public AttestationTableApiController(AttestationDefinitionService attestationDefinitionService,
+                                         AttestationDataService attestationDataService,
+                                         AttestationService attestationService) {
         this.attestationDefinitionService = attestationDefinitionService;
-        this.credentialDefinitionService = credentialDefinitionService;
         this.attestationDataService = attestationDataService;
+        this.attestationService = attestationService;
     }
 
     @GET
@@ -79,7 +78,7 @@ public class AttestationTableApiController {
         var result = new ArrayList<AttestationTableDto>();
 
         // Get all used attestation IDs
-        var usedAttestationIds = getUsedAttestationIds(criterionParticipant);
+        var usedAttestationIds = attestationService.getUsedAttestationIds(criterionParticipant);
 
         for (var attestation : attestations) {
             var config = attestation.getConfiguration();
@@ -266,14 +265,19 @@ public class AttestationTableApiController {
                                          @QueryParam("tableName") String tableName) {
         if (tableName == null || tableName.isEmpty()) {
             var errorColumns = Map.of("error", new ColumnInfoDto("VARCHAR", false, "tableName query parameter is required"));
-            return new TableSchemaDto("error", errorColumns, List.of());
+            return new TableSchemaDto("error", null, errorColumns, List.of());
         }
 
         var result = attestationDataService.getTableSchema(tableName);
-
         if (result.failed()) {
             var errorColumns = Map.of("error", new ColumnInfoDto("VARCHAR", false, result.getFailureDetail()));
-            return new TableSchemaDto(tableName, errorColumns, List.of());
+            return new TableSchemaDto(tableName, null, errorColumns, List.of());
+        }
+
+        var idColumn = attestationService.getIDColumn(tableName, participantContextId);
+        if (idColumn == null) {
+            var errorColumns = Map.of("error", new ColumnInfoDto("VARCHAR", false, "idColumn not found"));
+            return new TableSchemaDto(tableName, null, errorColumns, List.of());
         }
 
         var schemaResult = result.getContent();
@@ -291,26 +295,6 @@ public class AttestationTableApiController {
                         LinkedHashMap::new
                 ));
 
-        return new TableSchemaDto(tableName, columnDtos, schemaResult.primaryKeys());
-    }
-
-    private List<String> getUsedAttestationIds(Criterion criterionParticipant) {
-        List<String> result = new ArrayList<>();
-
-        var querySpec = QuerySpec.Builder.newInstance()
-                .filter(criterionParticipant)
-                .build();
-
-        var queryResult = credentialDefinitionService.queryCredentialDefinitions(querySpec);
-
-        if (queryResult.succeeded()) {
-
-            var defs = queryResult.getContent();
-            for (var def : defs) {
-                var attestations = def.getAttestations();
-                result.addAll(attestations);
-            }
-        }
-        return result;
+        return new TableSchemaDto(tableName, idColumn, columnDtos, schemaResult.primaryKeys());
     }
 }

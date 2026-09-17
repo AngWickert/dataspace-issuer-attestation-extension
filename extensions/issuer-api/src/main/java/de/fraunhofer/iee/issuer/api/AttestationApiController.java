@@ -14,14 +14,16 @@
 
 package de.fraunhofer.iee.issuer.api;
 
+import de.fraunhofer.iee.issuer.api.model.AttestationDto;
 import de.fraunhofer.iee.issuer.api.model.CreateAttestationRequestDto;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
 import org.eclipse.edc.issuerservice.spi.issuance.model.AttestationDefinition;
+import org.eclipse.edc.spi.query.Criterion;
+import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.result.Result;
 
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -34,11 +36,78 @@ public class AttestationApiController {
 
     private final AttestationDefinitionService attestationDefinitionService;
     private final AttestationDataService attestationDataService;
+    private final AttestationService attestationService;
 
     public AttestationApiController(AttestationDefinitionService attestationDefinitionService,
-                                    AttestationDataService attestationDataService) {
+                                    AttestationDataService attestationDataService,
+                                    AttestationService attestationService) {
         this.attestationDefinitionService = attestationDefinitionService;
         this.attestationDataService = attestationDataService;
+        this.attestationService = attestationService;
+    }
+
+    @GET
+    public Collection<AttestationDto> getAttestations(@PathParam("participantContextId") String participantContextId) {
+        // Decode Base64-encoded participantContextId
+        var decodedParticipantContextId = new String(
+                Base64.getUrlDecoder().decode(participantContextId),
+                StandardCharsets.UTF_8
+        );
+
+        var criterionParticipant = new Criterion("participantContextId", "=", decodedParticipantContextId);
+        var criterionType = new Criterion("attestationType", "=", "database");
+        var querySpec = QuerySpec.Builder.newInstance()
+                .filter(criterionParticipant)
+                .filter(criterionType)
+                .build();
+
+        var queryResult = attestationDefinitionService.queryAttestations(querySpec);
+
+        if (queryResult.failed()) {
+            return new ArrayList<>();
+        }
+
+        var result = new ArrayList<AttestationDto>();
+        var attestations = queryResult.getContent();
+        var usedAttestationIds = attestationService.getUsedAttestationIds(criterionParticipant);
+
+        for (var attestation : attestations) {
+            var attestationId = attestation.getId();
+            var active = usedAttestationIds.contains(attestationId);
+
+            result.add(new AttestationDto(
+                    attestation.getId(),
+                    attestation.getAttestationType(),
+                    attestation.getConfiguration(),
+                    active
+            ));
+        }
+
+        return result;
+    }
+
+    @GET
+    @Path("unused")
+    public Collection<String> getUnusedAttestationIds(@PathParam("participantContextId") String participantContextId) {
+        // Validate input
+        if (participantContextId == null || participantContextId.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            // Decode Base64-encoded participantContextId
+            var decodedParticipantContextId = new String(
+                    Base64.getUrlDecoder().decode(participantContextId),
+                    StandardCharsets.UTF_8
+            );
+
+            var criterionParticipant = new Criterion("participantContextId", "=", decodedParticipantContextId);
+
+            return attestationService.getUnusedAttestationIds(criterionParticipant);
+        } catch (IllegalArgumentException e) {
+            // Invalid Base64 input
+            return new ArrayList<>();
+        }
     }
 
     @POST
@@ -84,6 +153,7 @@ public class AttestationApiController {
                         .build();
             }
         } else {
+            attestationDefinitionService.deleteAttestation(request.id());
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,

@@ -62,7 +62,9 @@ public class AttestationTableApiExtension implements ServiceExtension {
                 transactionContext
         );
 
-        var controller = new AttestationTableApiController(attestationDefinitionService, credentialDefinitionService, attestationDataService);
+        var attestationService = new AttestationService(credentialDefinitionService, attestationDefinitionService);
+
+        var controller = new AttestationTableApiController(attestationDefinitionService, attestationDataService, attestationService);
         webService.registerResource(IdentityHubApiContext.ISSUERADMIN, controller);
         context.getMonitor().info("Attestation Table API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables");
         context.getMonitor().info("Attestation Table Data API registered at: /api/admin/v1alpha/participants/{participantContextId}/attestation-tables/table-data?tableName=<table>");

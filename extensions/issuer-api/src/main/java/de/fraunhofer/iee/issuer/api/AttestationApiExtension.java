@@ -16,6 +16,7 @@ package de.fraunhofer.iee.issuer.api;
 
 import org.eclipse.edc.identityhub.spi.webcontext.IdentityHubApiContext;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
+import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.runtime.metamodel.annotation.Extension;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
 import org.eclipse.edc.runtime.metamodel.annotation.Setting;
@@ -39,6 +40,8 @@ public class AttestationApiExtension implements ServiceExtension {
     @Inject
     private AttestationDefinitionService attestationDefinitionService;
 
+    @Inject CredentialDefinitionService credentialDefinitionService;
+
     @Inject
     private DataSourceRegistry dataSourceRegistry;
 
@@ -58,7 +61,9 @@ public class AttestationApiExtension implements ServiceExtension {
                 transactionContext
         );
 
-        var controller = new AttestationApiController(attestationDefinitionService, attestationDataService);
+        var attestationService = new AttestationService(credentialDefinitionService, attestationDefinitionService);
+
+        var controller = new AttestationApiController(attestationDefinitionService, attestationDataService, attestationService);
         webService.registerResource(IdentityHubApiContext.ISSUERADMIN, controller);
         context.getMonitor().info("Attestation API registered at: /api/admin/v1alpha/participants/{participantContextId}/database-attestations");
     }
