@@ -15,30 +15,29 @@
 package de.fraunhofer.iee.issuer.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.fraunhofer.iee.issuer.api.model.ColumnDto;
+import org.eclipse.edc.issuerservice.spi.issuance.model.MappingDefinition;
 import org.eclipse.edc.spi.result.Result;
 import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
 import org.eclipse.edc.transaction.spi.TransactionContext;
 
+import java.util.stream.Collectors;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import javax.sql.DataSource;
 
-public class AttestationDataService {
+public class DatabaseService {
 
     private final DataSourceRegistry dataSourceRegistry;
     private final String dataSourceName;
     private final TransactionContext transactionContext;
     private final ObjectMapper objectMapper;
 
-    public AttestationDataService(DataSourceRegistry dataSourceRegistry,
-                                  String dataSourceName,
-                                  TransactionContext transactionContext) {
+    public DatabaseService(DataSourceRegistry dataSourceRegistry,
+                           String dataSourceName,
+                           TransactionContext transactionContext) {
         this.dataSourceRegistry = dataSourceRegistry;
         this.dataSourceName = dataSourceName;
         this.transactionContext = transactionContext;
@@ -183,7 +182,87 @@ public class AttestationDataService {
         });
     }
 
-    private boolean isValidIdentifier(String identifier) {
+    public Result<String> alterTable(String tableName, Collection<ColumnDto> columns) {
+        StringBuilder sql = new StringBuilder("ALTER TABLE " + tableName);
+        var primaryKeys = new ArrayList<String>();
+        var first = true;
+
+        for (var column : columns) {
+            var name = column.columnName();
+            var dataType = column.dataType();
+            var defaultValue = column.defaultValue();
+            boolean nullable = Boolean.TRUE.equals(column.isNullable());
+            boolean primaryKey = Boolean.TRUE.equals(column.isPrimaryKey());
+
+            // Validate column name to prevent SQL Injection
+            if (!isValidIdentifier(name)) {
+                return Result.failure("Invalid column name: " + name);
+            }
+
+            // Validate data type to prevent SQL Injection
+            if (!isValidDataType(dataType)) {
+                return Result.failure("Invalid data type: " + dataType);
+            }
+
+            if (first) {
+                sql.append(" ADD COLUMN ").append(name).append(" ").append(dataType);
+                first = false;
+            } else {
+                sql.append(", ADD COLUMN ").append(name).append(" ").append(dataType);
+            }
+
+            if (!nullable) {
+                sql.append(" NOT NULL");
+            }
+
+            if (defaultValue != null && !defaultValue.isEmpty()) {
+                // Validate default value contains only safe characters/functions
+                if (!isValidDefaultValue(defaultValue)) {
+                    return Result.failure("Invalid default value for column " + name + ": " + defaultValue);
+                }
+                sql.append(" DEFAULT ").append(defaultValue);
+            }
+
+            if (primaryKey) {
+                primaryKeys.add(name);
+            }
+        }
+
+        return transactionContext.execute(() -> {
+            DataSource dataSource = dataSourceRegistry.resolve(dataSourceName);
+            if (dataSource == null) {
+                return Result.failure("DataSource not found: " + dataSourceName);
+            }
+
+            try (var connection = dataSource.getConnection()) {
+                try (var statement = connection.createStatement()) {
+                    statement.executeUpdate(String.valueOf(sql));
+                }
+
+                if (!primaryKeys.isEmpty()) {
+                    for (String primaryKey : primaryKeys) {
+                        StringBuilder psql = new StringBuilder("ALTER TABLE " + tableName);
+                        psql.append(" ADD CONSTRAINT pk_")
+                                .append(primaryKey)
+                                .append(" PRIMARY KEY (")
+                                .append(primaryKey)
+                                .append(")");
+                        try (var statement = connection.createStatement()) {
+                            statement.executeUpdate(psql.toString());
+                        }
+
+                    }
+                }
+
+                return Result.success("Successfully created table: " + tableName);
+
+            } catch (SQLException e) {
+                return Result.failure("Failed to alter table " + tableName + ": " + e.getMessage());
+            }
+        });
+    }
+
+    public boolean isValidIdentifier(String identifier) {
         // Only allow alphanumeric characters and underscores, must start with letter or underscore
         return identifier != null && identifier.matches("^[a-zA-Z_][a-zA-Z0-9_]*$");
     }
@@ -547,4 +626,29 @@ public class AttestationDataService {
         }
         return map;
     }
+
+    public boolean hasMatchingColumnNames(Collection<MappingDefinition> mappings, Collection<ColumnDto> columns, String idColumn) {
+
+        Set<String> inputs = mappings.stream()
+                .map(MappingDefinition::input)
+                .filter(input -> !Objects.equals(input, idColumn))
+                .collect(Collectors.toSet());
+
+        Set<String> columnNames = columns.stream()
+                .map(ColumnDto::columnName)
+                .collect(Collectors.toSet());
+
+        return inputs.equals(columnNames);
+    }
+
+    public Collection<ColumnDto> removeIdColumn(Collection<ColumnDto> columns, String idColumn) {
+        if (idColumn == null) {
+            return List.copyOf(columns);
+        }
+
+        return columns.stream()
+                .filter(column -> !idColumn.equals(column.columnName()))
+                .toList();
+    }
+
 }

@@ -42,14 +42,14 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 public class AttestationTableApiController {
 
     private final AttestationDefinitionService attestationDefinitionService;
-    private final AttestationDataService attestationDataService;
+    private final DatabaseService databaseService;
     private final AttestationService attestationService;
 
     public AttestationTableApiController(AttestationDefinitionService attestationDefinitionService,
-                                         AttestationDataService attestationDataService,
+                                         DatabaseService databaseService,
                                          AttestationService attestationService) {
         this.attestationDefinitionService = attestationDefinitionService;
-        this.attestationDataService = attestationDataService;
+        this.databaseService = databaseService;
         this.attestationService = attestationService;
     }
 
@@ -105,7 +105,7 @@ public class AttestationTableApiController {
 
             if (tableName != null) {
                 // Get real schema from database
-                var schemaResult = attestationDataService.getTableSchema(tableName);
+                var schemaResult = databaseService.getTableSchema(tableName);
                 Map<String, Object> tableParams = new LinkedHashMap<>();
                 List<String> primaryKeys = new ArrayList<>();
 
@@ -141,7 +141,7 @@ public class AttestationTableApiController {
             return new ArrayList<>();
         }
 
-        var dataResult = attestationDataService.queryDataAttestations(tableName);
+        var dataResult = databaseService.queryDataAttestations(tableName);
 
         if (dataResult.failed()) {
             return new ArrayList<>();
@@ -168,7 +168,7 @@ public class AttestationTableApiController {
             );
         }
 
-        var result = attestationDataService.setDataAttestations(request.tableName(), request.data());
+        var result = databaseService.setDataAttestations(request.tableName(), request.data());
 
         if (result.succeeded()) {
             return Map.of(
@@ -201,7 +201,7 @@ public class AttestationTableApiController {
             );
         }
 
-        var result = attestationDataService.deleteDataAttestations(request.tableName(), request.ids());
+        var result = databaseService.deleteDataAttestations(request.tableName(), request.ids());
 
         if (result.succeeded()) {
             return Map.of(
@@ -241,7 +241,7 @@ public class AttestationTableApiController {
             );
         }
 
-        var result = attestationDataService.updateDataAttestations(request.tableName(), request.ids(), request.data());
+        var result = databaseService.updateDataAttestations(request.tableName(), request.ids(), request.data());
 
         if (result.succeeded()) {
             return Map.of(
@@ -268,7 +268,7 @@ public class AttestationTableApiController {
             return new TableSchemaDto("error", null, errorColumns, List.of());
         }
 
-        var result = attestationDataService.getTableSchema(tableName);
+        var result = databaseService.getTableSchema(tableName);
         if (result.failed()) {
             var errorColumns = Map.of("error", new ColumnInfoDto("VARCHAR", false, result.getFailureDetail()));
             return new TableSchemaDto(tableName, null, errorColumns, List.of());

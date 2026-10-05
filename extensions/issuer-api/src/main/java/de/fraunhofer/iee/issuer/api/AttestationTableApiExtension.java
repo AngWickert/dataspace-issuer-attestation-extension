@@ -56,7 +56,7 @@ public class AttestationTableApiExtension implements ServiceExtension {
 
     @Override
     public void initialize(ServiceExtensionContext context) {
-        var attestationDataService = new AttestationDataService(
+        var attestationDataService = new DatabaseService(
                 dataSourceRegistry,
                 dataSourceName,
                 transactionContext

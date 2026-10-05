@@ -40,7 +40,8 @@ public class AttestationApiExtension implements ServiceExtension {
     @Inject
     private AttestationDefinitionService attestationDefinitionService;
 
-    @Inject CredentialDefinitionService credentialDefinitionService;
+    @Inject
+    private CredentialDefinitionService credentialDefinitionService;
 
     @Inject
     private DataSourceRegistry dataSourceRegistry;
@@ -55,7 +56,7 @@ public class AttestationApiExtension implements ServiceExtension {
 
     @Override
     public void initialize(ServiceExtensionContext context) {
-        var attestationDataService = new AttestationDataService(
+        var attestationDataService = new DatabaseService(
                 dataSourceRegistry,
                 dataSourceName,
                 transactionContext

@@ -14,3 +14,4 @@
 
 de.fraunhofer.iee.issuer.api.AttestationApiExtension
 de.fraunhofer.iee.issuer.api.AttestationTableApiExtension
+de.fraunhofer.iee.issuer.api.CredentialDefinitionsApiExtension

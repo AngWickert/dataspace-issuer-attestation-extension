@@ -35,14 +35,14 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 public class AttestationApiController {
 
     private final AttestationDefinitionService attestationDefinitionService;
-    private final AttestationDataService attestationDataService;
+    private final DatabaseService databaseService;
     private final AttestationService attestationService;
 
     public AttestationApiController(AttestationDefinitionService attestationDefinitionService,
-                                    AttestationDataService attestationDataService,
+                                    DatabaseService databaseService,
                                     AttestationService attestationService) {
         this.attestationDefinitionService = attestationDefinitionService;
-        this.attestationDataService = attestationDataService;
+        this.databaseService = databaseService;
         this.attestationService = attestationService;
     }
 
@@ -118,6 +118,30 @@ public class AttestationApiController {
                 Base64.getUrlDecoder().decode(participantContextId),
                 StandardCharsets.UTF_8
         );
+
+        if (request.attestationType() == null || request.attestationType().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "success", false,
+                            "message", "attestationType is required"
+                    )).build();
+        }
+
+        if (request.id() == null || request.id().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "success", false,
+                            "message", "id is required"
+                    )).build();
+        }
+
+        if (request.configuration() == null || request.configuration().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "success", false,
+                            "message", "configuration is required"
+                    )).build();
+        }
 
         // Create AttestationDefinition
         var attestationDefinition = AttestationDefinition.Builder.newInstance()
@@ -205,6 +229,6 @@ public class AttestationApiController {
         ));
 
         // Call AttestationDataService to create the table
-        return attestationDataService.createTable(tableName, columnsList);
+        return databaseService.createTable(tableName, columnsList);
     }
 }
