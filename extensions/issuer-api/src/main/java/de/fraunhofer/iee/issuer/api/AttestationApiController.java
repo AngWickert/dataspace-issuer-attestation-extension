@@ -76,6 +76,7 @@ public class AttestationApiController {
             var active = usedAttestationIds.contains(attestationId);
 
             result.add(new AttestationDto(
+                    attestation.getParticipantContextId(),
                     attestation.getId(),
                     attestation.getAttestationType(),
                     attestation.getConfiguration(),

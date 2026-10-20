@@ -59,7 +59,8 @@ public class AttestationTableApiExtension implements ServiceExtension {
         var attestationDataService = new DatabaseService(
                 dataSourceRegistry,
                 dataSourceName,
-                transactionContext
+                transactionContext,
+                context.getMonitor()
         );
 
         var attestationService = new AttestationService(credentialDefinitionService, attestationDefinitionService);

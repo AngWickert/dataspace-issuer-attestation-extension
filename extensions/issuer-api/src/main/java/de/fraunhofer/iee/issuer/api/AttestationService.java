@@ -88,6 +88,9 @@ public class AttestationService {
     }
 
     public String getIDColumn(String tableName, String participantContextId) {
+        // PostgreSQL converts unquoted identifiers to lowercase
+        tableName = tableName.toLowerCase();
+
         var decodedParticipantContextId = new String(
                 Base64.getUrlDecoder().decode(participantContextId),
                 StandardCharsets.UTF_8
@@ -114,5 +117,36 @@ public class AttestationService {
         }
 
         return null;
+    }
+
+    public boolean hasNoAttestationForTable(String tableName, String decodedParticipantContextId) {
+        if (tableName == null || tableName.isEmpty() || decodedParticipantContextId == null || decodedParticipantContextId.isEmpty()) {
+            return true;  // No valid input
+        }
+
+        // PostgreSQL converts unquoted identifiers to lowercase
+        tableName = tableName.toLowerCase();
+
+        var criterionParticipant = new Criterion("participantContextId", "=", decodedParticipantContextId);
+        var criterionType = new Criterion("attestationType", "=", "database");
+        var querySpec = QuerySpec.Builder.newInstance()
+                .filter(criterionParticipant)
+                .filter(criterionType)
+                .build();
+
+        var queryResult = attestationDefinitionService.queryAttestations(querySpec);
+
+        if (queryResult.succeeded()) {
+            for (var attestation : queryResult.getContent()) {
+                var configuration = attestation.getConfiguration();
+                var att_tableName = (String) configuration.get("tableName");
+
+                if (att_tableName != null && att_tableName.equals(tableName)) {
+                    return false;  // Found attestation
+                }
+            }
+        }
+
+        return true;  // Not found
     }
 }

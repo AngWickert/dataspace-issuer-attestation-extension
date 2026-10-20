@@ -59,12 +59,13 @@ public class CredentialDefinitionsApiExtension implements ServiceExtension {
         var databaseService = new DatabaseService(
                 dataSourceRegistry,
                 dataSourceName,
-                transactionContext
+                transactionContext,
+                context.getMonitor()
         );
 
         var attestationService = new AttestationService(credentialDefinitionService, attestationDefinitionService);
 
-        var controller = new CredentialDefinitionsApiController(credentialDefinitionService, databaseService, attestationService, context.getMonitor());
+        var controller = new CredentialDefinitionsApiController(credentialDefinitionService, databaseService, attestationService);
         webService.registerResource(IdentityHubApiContext.ISSUERADMIN, controller);
         context.getMonitor().info("Attestation API registered at: /api/admin/v1alpha/participants/{participantContextId}/database-credentialdefinitions");
     }

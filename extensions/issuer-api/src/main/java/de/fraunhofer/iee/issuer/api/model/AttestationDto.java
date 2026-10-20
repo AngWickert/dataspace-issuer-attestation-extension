@@ -17,6 +17,7 @@ package de.fraunhofer.iee.issuer.api.model;
 import java.util.Map;
 
 public record AttestationDto(
+        String participantContextId,
         String id,
         String attestationType,
         Map<String, Object> configuration,

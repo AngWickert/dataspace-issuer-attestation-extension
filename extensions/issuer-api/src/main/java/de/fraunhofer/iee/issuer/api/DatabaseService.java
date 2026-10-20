@@ -17,6 +17,7 @@ package de.fraunhofer.iee.issuer.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.fraunhofer.iee.issuer.api.model.ColumnDto;
 import org.eclipse.edc.issuerservice.spi.issuance.model.MappingDefinition;
+import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.spi.result.Result;
 import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
 import org.eclipse.edc.transaction.spi.TransactionContext;
@@ -34,19 +35,25 @@ public class DatabaseService {
     private final String dataSourceName;
     private final TransactionContext transactionContext;
     private final ObjectMapper objectMapper;
+    private final Monitor monitor;
 
     public DatabaseService(DataSourceRegistry dataSourceRegistry,
                            String dataSourceName,
-                           TransactionContext transactionContext) {
+                           TransactionContext transactionContext,
+                           Monitor monitor) {
         this.dataSourceRegistry = dataSourceRegistry;
         this.dataSourceName = dataSourceName;
         this.transactionContext = transactionContext;
         this.objectMapper = new ObjectMapper();
+        this.monitor = monitor;
     }
 
     public Result<List<Map<String, Object>>> queryDataAttestations(String tableName) {
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         // Validate table exists, prevents SQL Injection
-        var validationResult = validateTableAndGetColumns(tableName);
+        var validationResult = validateTableAndGetColumns(normalizedTableName);
         if (validationResult.failed()) {
             return Result.failure(validationResult.getFailureDetail());
         }
@@ -59,7 +66,9 @@ public class DatabaseService {
 
             try (var connection = dataSource.getConnection();
                     var statement = connection.createStatement();
-                    var resultSet = statement.executeQuery("SELECT * FROM " + tableName)) {
+                    // Identifiers (table/column names) cannot use PreparedStatement placeholders in PostgreSQL.
+                    // tableName validated via validateTableAndGetColumns
+                    var resultSet = statement.executeQuery("SELECT * FROM " + normalizedTableName)) {
 
                 var results = new ArrayList<Map<String, Object>>();
                 while (resultSet.next()) {
@@ -68,12 +77,16 @@ public class DatabaseService {
                 return Result.success(results);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to query table " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to query table");
             }
         });
     }
 
     public Result<List<String>> validateTableAndGetColumns(String tableName) {
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         return transactionContext.execute(() -> {
             DataSource dataSource = dataSourceRegistry.resolve(dataSourceName);
             if (dataSource == null) {
@@ -82,7 +95,7 @@ public class DatabaseService {
 
             try (var connection = dataSource.getConnection()) {
                 var metaData = connection.getMetaData();
-                var columns = metaData.getColumns(null, null, tableName, null);
+                var columns = metaData.getColumns(null, null, normalizedTableName, null);
 
                 var allowedColumns = new ArrayList<String>();
                 while (columns.next()) {
@@ -91,13 +104,13 @@ public class DatabaseService {
                 }
 
                 if (allowedColumns.isEmpty()) {
-                    return Result.failure("Table does not exist: " + tableName);
+                    return Result.failure("Table does not exist: " + normalizedTableName);
                 }
 
                 return Result.success(allowedColumns);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to validate table " + tableName + ": " + e.getMessage());
+                return Result.failure("Failed to validate table " + normalizedTableName + ": " + e.getMessage());
             }
         });
     }
@@ -110,9 +123,12 @@ public class DatabaseService {
             return Result.failure("Table name cannot be empty");
         }
 
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         // Validate table name to prevent SQL Injection
-        if (!isValidDBKey(tableName)) {
-            return Result.failure("Invalid table name: " + tableName);
+        if (!isValidDBKey(normalizedTableName)) {
+            return Result.failure("Invalid table name: " + normalizedTableName);
         }
 
         return transactionContext.execute(() -> {
@@ -167,23 +183,35 @@ public class DatabaseService {
                     columnDefinitions.add("PRIMARY KEY (" + String.join(", ", primaryKeys) + ")");
                 }
 
-                var sql = "CREATE TABLE " + tableName + " ( " +
+                // Identifiers (table/column names) cannot use PreparedStatement placeholders in PostgreSQL.
+                // tableName validated via isValidDBKey()
+                var sql = "CREATE TABLE " + normalizedTableName + " ( " +
                         String.join(", ", columnDefinitions) + ")";
 
                 try (var statement = connection.createStatement()) {
                     statement.executeUpdate(sql);
                 }
 
-                return Result.success("Successfully created table: " + tableName);
+                monitor.info("User performed CREATE TABLE on " + normalizedTableName);
+                return Result.success("Successfully created table: " + normalizedTableName);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to create table " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to create table");
             }
         });
     }
 
     public Result<String> alterTable(String tableName, Collection<ColumnDto> columns) {
-        StringBuilder sql = new StringBuilder("ALTER TABLE " + tableName);
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
+        // SECURITY: Validate table name to prevent SQL Injection
+        if (!isValidDBKey(normalizedTableName)) {
+            return Result.failure("Invalid table name: " + normalizedTableName);
+        }
+
+        StringBuilder sql = new StringBuilder("ALTER TABLE " + normalizedTableName);
         var primaryKeys = new ArrayList<String>();
         var first = true;
 
@@ -241,7 +269,7 @@ public class DatabaseService {
 
                 if (!primaryKeys.isEmpty()) {
                     for (String primaryKey : primaryKeys) {
-                        StringBuilder psql = new StringBuilder("ALTER TABLE " + tableName);
+                        StringBuilder psql = new StringBuilder("ALTER TABLE " + normalizedTableName);
                         psql.append(" ADD CONSTRAINT pk_")
                                 .append(primaryKey)
                                 .append(" PRIMARY KEY (")
@@ -254,10 +282,12 @@ public class DatabaseService {
                     }
                 }
 
-                return Result.success("Successfully created table: " + tableName);
+                monitor.info("User performed ALTER TABLE on " + normalizedTableName);
+                return Result.success("Successfully altered table: " + normalizedTableName);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to alter table " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to alter table");
             }
         });
     }
@@ -268,6 +298,9 @@ public class DatabaseService {
     }
 
     public boolean isValidDBKey(String dbKey) {
+        if (dbKey.length() > 63 ) { // PostgreSQL max identifier length
+            return false;
+        }
         return dbKey != null && dbKey.matches("^[a-zA-Z_][a-zA-Z0-9_]*$");
     }
 
@@ -293,7 +326,7 @@ public class DatabaseService {
         return defaultValue.matches("^(?:" +
                 "[a-zA-Z_][a-zA-Z0-9_]*\\(\\)|" +  // Functions like gen_random_uuid()
                 "-?\\d+(\\.\\d+)?|" +               // Numeric values
-                "'[^']*'|" +                        // String literals
+                "'[a-zA-Z0-9_\\s-]*'|" +                        // String literals
                 "true|false|" +                     // Boolean
                 "NULL" +                            // NULL
                 ")$");
@@ -304,8 +337,11 @@ public class DatabaseService {
             return Result.failure("No data provided");
         }
 
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         // Get table schema to determine column types
-        var schemaResult = getTableSchema(tableName);
+        var schemaResult = getTableSchema(normalizedTableName);
         if (schemaResult.failed()) {
             return Result.failure(schemaResult.getFailureDetail());
         }
@@ -333,7 +369,9 @@ public class DatabaseService {
                         .toList());
                 var columnNames = String.join(", ", columns);
 
-                var sql = "INSERT INTO " + tableName + " (" + columnNames + ") VALUES (" + placeholders + ")";
+                // Identifiers (table/column names) cannot use PreparedStatement placeholders in PostgreSQL.
+                // tableName validated via loop over allowedColumns and getTableSchema
+                var sql = "INSERT INTO " + normalizedTableName + " (" + columnNames + ") VALUES (" + placeholders + ")";
 
                 // preparedStatement prevents SQL Injection via the values
                 try (var preparedStatement = connection.prepareStatement(sql)) {
@@ -350,7 +388,8 @@ public class DatabaseService {
                                 var jsonString = objectMapper.writeValueAsString(value);
                                 preparedStatement.setObject(i + 1, jsonString, Types.OTHER);
                             } catch (Exception e) {
-                                return Result.failure("Failed to serialize JSON for column '" + columnName + "': " + e.getMessage());
+                                monitor.warning("Failed to serialize JSON for column '" + columnName + "': " + e.getMessage());
+                                return Result.failure("Failed to serialize JSON");
                             }
                         } else {
                             preparedStatement.setObject(i + 1, value);
@@ -360,10 +399,11 @@ public class DatabaseService {
                     preparedStatement.executeUpdate();
                 }
 
-                return Result.success("Successfully inserted 1 row into " + tableName);
+                return Result.success("Successfully inserted 1 row into " + normalizedTableName);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to insert data into " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to insert data from table");
             }
         });
     }
@@ -378,8 +418,11 @@ public class DatabaseService {
             return Result.failure("No data provided");
         }
 
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         // Get table schema to determine column types and primary keys
-        Result<TableSchemaResult> schemaResult = getTableSchema(tableName);
+        Result<TableSchemaResult> schemaResult = getTableSchema(normalizedTableName);
 
         if (schemaResult.failed()) {
             return Result.failure(schemaResult.getFailureDetail());
@@ -443,7 +486,7 @@ public class DatabaseService {
                     whereClause.append(idColumns.get(i)).append(" = ?");
                 }
 
-                var sql = "UPDATE " + tableName + " SET " + setClause + " WHERE " + whereClause;
+                var sql = "UPDATE " + normalizedTableName + " SET " + setClause + " WHERE " + whereClause;
 
                 // preparedStatement prevents SQL Injection via the values
                 try (var preparedStatement = connection.prepareStatement(sql)) {
@@ -476,11 +519,12 @@ public class DatabaseService {
                     }
 
                     int updatedRows = preparedStatement.executeUpdate();
-                    return Result.success("Successfully updated " + updatedRows + " row(s) in " + tableName);
+                    return Result.success("Successfully updated " + updatedRows + " row(s) in " + normalizedTableName);
                 }
 
             } catch (SQLException e) {
-                return Result.failure("Failed to update data in " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to update data in table");
             }
         });
     }
@@ -490,13 +534,16 @@ public class DatabaseService {
             return Result.failure("No ids provided");
         }
 
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         // Validate table and get allowed columns, prevents SQL Injection
-        var validationResult = validateTableAndGetColumns(tableName);
+        var validationResult = validateTableAndGetColumns(normalizedTableName);
         if (validationResult.failed()) {
             return Result.failure(validationResult.getFailureDetail());
         }
 
-        Result<TableSchemaResult> schemaResult = getTableSchema(tableName);
+        Result<TableSchemaResult> schemaResult = getTableSchema(normalizedTableName);
 
         if (schemaResult.failed()) {
             return Result.failure(schemaResult.getFailureDetail());
@@ -507,7 +554,7 @@ public class DatabaseService {
         // Check if all id columns are primary keys, prevents SQL Injection
         for (var idColumn : ids.keySet()) {
             if (!primaryKeys.contains(idColumn)) {
-                return Result.failure("Column '" + idColumn + "' is not a primary key in table " + tableName);
+                return Result.failure("Column '" + idColumn + "' is not a primary key in table " + normalizedTableName);
             }
         }
 
@@ -520,7 +567,7 @@ public class DatabaseService {
             try (var connection = dataSource.getConnection()) {
                 var idColumns = new ArrayList<>(ids.keySet());
 
-                StringBuilder sql = new StringBuilder("DELETE FROM " + tableName + " WHERE ");
+                StringBuilder sql = new StringBuilder("DELETE FROM " + normalizedTableName + " WHERE ");
 
                 for (int i = 0; i < idColumns.size(); i++) {
                     if (i > 0) {
@@ -529,7 +576,7 @@ public class DatabaseService {
                     sql.append(idColumns.get(i)).append(" = ?");
                 }
 
-                int deletedRows = 0;
+                int deletedRows;
                 // preparedStatement prevents SQL Injection via the values
                 try (var preparedStatement = connection.prepareStatement(sql.toString())) {
                     for (int i = 0; i < idColumns.size(); i++) {
@@ -540,10 +587,12 @@ public class DatabaseService {
                     deletedRows = preparedStatement.executeUpdate();
                 }
 
-                return Result.success("Successfully deleted " + deletedRows + " row(s) from " + tableName);
+                monitor.info("User performed DELETE from table " + normalizedTableName);
+                return Result.success("Successfully deleted " + deletedRows + " row(s) from " + normalizedTableName);
 
             } catch (SQLException e) {
-                return Result.failure("Failed to delete data from " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to delete data from table");
             }
         });
 
@@ -551,6 +600,9 @@ public class DatabaseService {
     }
 
     public Result<TableSchemaResult> getTableSchema(String tableName) {
+        // PostgreSQL converts unquoted identifiers to lowercase
+        final String normalizedTableName = tableName.toLowerCase();
+
         return transactionContext.execute(() -> {
             DataSource dataSource = dataSourceRegistry.resolve(dataSourceName);
             if (dataSource == null) {
@@ -561,7 +613,7 @@ public class DatabaseService {
                 var metaData = connection.getMetaData();
 
                 // Get column information - store with ordinal position for sorting
-                var columns = metaData.getColumns(null, null, tableName, null);
+                var columns = metaData.getColumns(null, null, normalizedTableName, null);
                 var columnMap = new HashMap<Integer, Map.Entry<String, ColumnInfo>>();
 
                 while (columns.next()) {
@@ -576,7 +628,7 @@ public class DatabaseService {
                 }
 
                 if (columnMap.isEmpty()) {
-                    return Result.failure("Table not found or has no columns: " + tableName);
+                    return Result.failure("Table not found or has no columns: " + normalizedTableName);
                 }
 
                 // Sort by ordinal position and build schema
@@ -586,7 +638,7 @@ public class DatabaseService {
                     .forEach(entry -> schema.put(entry.getValue().getKey(), entry.getValue().getValue()));
 
                 // Get primary keys
-                var primaryKeys = metaData.getPrimaryKeys(null, null, tableName);
+                var primaryKeys = metaData.getPrimaryKeys(null, null, normalizedTableName);
                 var pkList = new ArrayList<String>();
                 while (primaryKeys.next()) {
                     var pkColumn = primaryKeys.getString("COLUMN_NAME");
@@ -596,7 +648,8 @@ public class DatabaseService {
                 return Result.success(new TableSchemaResult(schema, pkList));
 
             } catch (SQLException e) {
-                return Result.failure("Failed to retrieve schema for table " + tableName + ": " + e.getMessage());
+                monitor.warning("SQL error querying table " + normalizedTableName + ": " + e.getMessage());
+                return Result.failure("Failed to retrieve schema for table " + normalizedTableName);
             }
         });
     }

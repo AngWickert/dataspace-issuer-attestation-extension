@@ -141,6 +141,17 @@ public class AttestationTableApiController {
             return new ArrayList<>();
         }
 
+        // Decode Base64-encoded participantContextId
+        var decodedParticipantContextId = new String(
+                Base64.getUrlDecoder().decode(participantContextId),
+                StandardCharsets.UTF_8
+        );
+
+        // Verify that the participant has access to this table via an attestation
+        if (attestationService.hasNoAttestationForTable(tableName, decodedParticipantContextId)) {
+            return new ArrayList<>();
+        }
+
         var dataResult = databaseService.queryDataAttestations(tableName);
 
         if (dataResult.failed()) {
@@ -152,8 +163,8 @@ public class AttestationTableApiController {
 
     @POST
     @Path("table-data")
-    public Map<String, Object> setDataAttestations(@PathParam("participantContextId") String participantContextId,
-                                                   InsertDataRequestDto request) {
+    public Map<String, Object> insertDataAttestations(@PathParam("participantContextId") String participantContextId,
+                                                      InsertDataRequestDto request) {
         if (request == null || request.tableName() == null || request.tableName().isEmpty()) {
             return Map.of(
                     "success", false,
@@ -165,6 +176,20 @@ public class AttestationTableApiController {
             return Map.of(
                     "success", false,
                     "message", "data is required"
+            );
+        }
+
+        // Decode Base64-encoded participantContextId
+        var decodedParticipantContextId = new String(
+                Base64.getUrlDecoder().decode(participantContextId),
+                StandardCharsets.UTF_8
+        );
+
+        // Verify that the participant has access to this table via an attestation
+        if (attestationService.hasNoAttestationForTable(request.tableName(), decodedParticipantContextId)) {
+            return Map.of(
+                    "success", false,
+                    "message", "No attestation found for table: " + request.tableName()
             );
         }
 
@@ -201,6 +226,20 @@ public class AttestationTableApiController {
             );
         }
 
+        // Decode Base64-encoded participantContextId
+        var decodedParticipantContextId = new String(
+                Base64.getUrlDecoder().decode(participantContextId),
+                StandardCharsets.UTF_8
+        );
+
+        // Verify that the participant has access to this table via an attestation
+        if (attestationService.hasNoAttestationForTable(request.tableName(), decodedParticipantContextId)) {
+            return Map.of(
+                    "success", false,
+                    "message", "No attestation found for table: " + request.tableName()
+            );
+        }
+
         var result = databaseService.deleteDataAttestations(request.tableName(), request.ids());
 
         if (result.succeeded()) {
@@ -218,7 +257,7 @@ public class AttestationTableApiController {
 
     @PUT
     @Path("/table-data")
-    public Map<String, Object> setDataAttestations(@PathParam("participantContextId") String participantContextId, UpdateDataRequestDto request) {
+    public Map<String, Object> updateDataAttestations(@PathParam("participantContextId") String participantContextId, UpdateDataRequestDto request) {
 
         if (request == null || request.tableName() == null || request.tableName().isEmpty()) {
             return Map.of(
@@ -238,6 +277,20 @@ public class AttestationTableApiController {
             return Map.of(
                     "success", false,
                     "message", "data is required"
+            );
+        }
+
+        // Decode Base64-encoded participantContextId
+        var decodedParticipantContextId = new String(
+                Base64.getUrlDecoder().decode(participantContextId),
+                StandardCharsets.UTF_8
+        );
+
+        // Verify that the participant has access to this table via an attestation
+        if (attestationService.hasNoAttestationForTable(request.tableName(), decodedParticipantContextId)) {
+            return Map.of(
+                    "success", false,
+                    "message", "No attestation found for table: " + request.tableName()
             );
         }
 

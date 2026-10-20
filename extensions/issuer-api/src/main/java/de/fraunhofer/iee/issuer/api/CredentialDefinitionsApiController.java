@@ -20,7 +20,6 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.issuerservice.spi.issuance.model.CredentialDefinition;
-import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.spi.result.Result;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -35,23 +34,18 @@ public class CredentialDefinitionsApiController {
     private final CredentialDefinitionService credentialDefinitionService;
     private final DatabaseService databaseService;
     private final AttestationService attestationService;
-    private final Monitor monitor;
 
 
     public CredentialDefinitionsApiController(CredentialDefinitionService credentialDefinitionService,
-                                              DatabaseService databaseService, AttestationService attestationService,
-                                              Monitor monitor) {
+                                              DatabaseService databaseService, AttestationService attestationService) {
         this.credentialDefinitionService = credentialDefinitionService;
         this.databaseService = databaseService;
         this.attestationService = attestationService;
-        this.monitor = monitor;
     }
 
     @POST
     public Response setCredentialDefinitions(@PathParam("participantContextId") String participantContextId,
                                              CreateCredentialDefinitionsRequestDto request) {
-        monitor.info("=== Create Credential Definitions Request ===");
-        monitor.info(String.format("ParticipantContextId (encoded): %s", participantContextId));
 
         // Decode Base64-encoded participantContextId
         var decodedParticipantContextId = new String(
