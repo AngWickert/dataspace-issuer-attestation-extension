@@ -59,9 +59,6 @@ public class CredentialDefinitionsApiController {
                 StandardCharsets.UTF_8
         );
 
-        monitor.info(String.format("Mappings: %s", request != null && request.mappings() != null ? request.mappings() : "null"));
-        monitor.info(String.format("Columns: %s", request != null && request.columns() != null ? request.columns() : "null"));
-
         if (request == null || request.attestation() == null || request.attestation().isEmpty()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
@@ -78,7 +75,7 @@ public class CredentialDefinitionsApiController {
                     )).build();
         }
 
-        if (request.id() == null || request.id().isEmpty() || databaseService.isValidIdentifier(request.id())) {
+        if (request.id() == null || request.id().isEmpty() || !databaseService.isValidIdentifier(request.id())) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
@@ -90,7 +87,15 @@ public class CredentialDefinitionsApiController {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
-                            "message", "credentialType is required"
+                            "message", "mappings is required"
+                    )).build();
+        }
+
+        if (request.mappings().stream().anyMatch(m -> "id".equals(m.input()))) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "success", false,
+                            "message", "input with value 'id' is not allowed in mappings"
                     )).build();
         }
 
@@ -98,7 +103,7 @@ public class CredentialDefinitionsApiController {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
-                            "message", "credentialType is required"
+                            "message", "format is required"
                     )).build();
         }
 
@@ -143,7 +148,7 @@ public class CredentialDefinitionsApiController {
                     .build();
         }
 
-        var tableCreationResult = alterDatabaseTable(request.tableName(), request.columns(), idColumn);
+        var tableCreationResult = extendCredentialDefinitionsTable(request.tableName(), request.columns(), idColumn);
         if (tableCreationResult.failed()) {
             // Rollback: delete the credential definitions
             credentialDefinitionService.deleteCredentialDefinition(request.id());
@@ -159,12 +164,12 @@ public class CredentialDefinitionsApiController {
         return Response.status(Response.Status.OK)
                 .entity(Map.of(
                         "success", true,
-                        "message", "Attestation created successfully"
+                        "message", "CredentialDefinitions created successfully"
                 ))
                 .build();
     }
 
-    private Result<String> alterDatabaseTable(String tableName, Collection<ColumnDto> columns, String idColumn) {
+    private Result<String> extendCredentialDefinitionsTable(String tableName, Collection<ColumnDto> columns, String idColumn) {
 
         if (tableName == null || tableName.isEmpty()) {
             return Result.failure("tableName is required");

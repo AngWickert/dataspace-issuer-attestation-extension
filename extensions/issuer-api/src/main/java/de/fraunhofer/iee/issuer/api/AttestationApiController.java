@@ -127,11 +127,11 @@ public class AttestationApiController {
                     )).build();
         }
 
-        if (request.id() == null || request.id().isEmpty()) {
+        if (request.id() == null || request.id().isEmpty() || !databaseService.isValidIdentifier(request.id())) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
-                            "message", "id is required"
+                            "message", "valid id is required"
                     )).build();
         }
 
@@ -197,8 +197,8 @@ public class AttestationApiController {
     private Result<String> createDatabaseTable(Map<String, Object> configuration) {
         // Extract tableName and columns from configuration
         var tableName = (String) configuration.get("tableName");
-        if (tableName == null || tableName.isEmpty()) {
-            return Result.failure("tableName is required in configuration");
+        if (tableName == null || tableName.isEmpty() || !databaseService.isValidDBKey(tableName)) {
+            return Result.failure("valid tableName is required in configuration");
         }
 
         var dataSourceName = (String) configuration.get("dataSourceName");
@@ -207,8 +207,8 @@ public class AttestationApiController {
         }
 
         var idColumn = (String) configuration.get("idColumn");
-        if (idColumn == null || idColumn.isEmpty()) {
-            return Result.failure("idColumn is required in configuration");
+        if (idColumn == null || idColumn.isEmpty() || !databaseService.isValidDBKey(idColumn)) {
+            return Result.failure("valid idColumn is required in configuration");
         }
 
         List<Map<String, Object>> columnsList = new ArrayList<>();

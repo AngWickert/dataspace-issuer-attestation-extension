@@ -111,7 +111,7 @@ public class DatabaseService {
         }
 
         // Validate table name to prevent SQL Injection
-        if (!isValidIdentifier(tableName)) {
+        if (!isValidDBKey(tableName)) {
             return Result.failure("Invalid table name: " + tableName);
         }
 
@@ -133,7 +133,7 @@ public class DatabaseService {
                     var defaultValue = (String) column.get("default");
 
                     // Validate column name to prevent SQL Injection
-                    if (!isValidIdentifier(name)) {
+                    if (!isValidDBKey(name)) {
                         return Result.failure("Invalid column name: " + name);
                     }
 
@@ -195,7 +195,7 @@ public class DatabaseService {
             boolean primaryKey = Boolean.TRUE.equals(column.isPrimaryKey());
 
             // Validate column name to prevent SQL Injection
-            if (!isValidIdentifier(name)) {
+            if (!isValidDBKey(name)) {
                 return Result.failure("Invalid column name: " + name);
             }
 
@@ -264,7 +264,11 @@ public class DatabaseService {
 
     public boolean isValidIdentifier(String identifier) {
         // Only allow alphanumeric characters and underscores, must start with letter or underscore
-        return identifier != null && identifier.matches("^[a-zA-Z_][a-zA-Z0-9_]*$");
+        return identifier != null && identifier.matches("^[a-zA-Z_][a-zA-Z0-9_-]*$");
+    }
+
+    public boolean isValidDBKey(String dbKey) {
+        return dbKey != null && dbKey.matches("^[a-zA-Z_][a-zA-Z0-9_]*$");
     }
 
     private boolean isValidDataType(String dataType) {
@@ -636,6 +640,7 @@ public class DatabaseService {
 
         Set<String> columnNames = columns.stream()
                 .map(ColumnDto::columnName)
+                .filter(columnName -> !Objects.equals(columnName, "id") && !Objects.equals(columnName, idColumn))
                 .collect(Collectors.toSet());
 
         return inputs.equals(columnNames);
