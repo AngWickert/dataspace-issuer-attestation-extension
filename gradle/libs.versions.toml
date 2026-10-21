@@ -3,11 +3,14 @@ format.version = "1.1"
 
 [versions]
 edc = "0.14.0"
+edc-build = "1.1.1"
+shadow = "8.3.6"
 rsApi = "4.0.0"
 
 [libraries]
 # edc libs
 edc-vault-hashicorp = { module = "org.eclipse.edc:vault-hashicorp", version.ref = "edc" }
+edc-junit = { module = "org.eclipse.edc:junit", version.ref = "edc" }
 
 # issuer libs
 edc-ih-credentials-spi = { module = "org.eclipse.edc:verifiable-credential-spi", version.ref = "edc" }
@@ -34,5 +37,5 @@ bom-issuer-feat-sql = { module = "org.eclipse.edc:issuerservice-feature-sql-bom"
 issuer = ["bom-issuer", "bom-issuer-feat-sql", "edc-vault-hashicorp"]
 
 [plugins]
-edc-build = { id = "org.eclipse.edc.edc-build", version = "1.1.1" }
-shadow = { id = "com.gradleup.shadow", version = "8.3.6" }
+edc-build = { id = "org.eclipse.edc.edc-build", version.ref = "edc-build" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
