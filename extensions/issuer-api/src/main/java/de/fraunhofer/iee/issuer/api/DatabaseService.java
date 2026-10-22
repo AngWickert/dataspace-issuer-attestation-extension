@@ -324,9 +324,26 @@ public class DatabaseService {
         // - Boolean values (true, false)
         // - NULL
         return defaultValue.matches("^(?:" +
-                "[a-zA-Z_][a-zA-Z0-9_]*\\(\\)|" +  // Functions like gen_random_uuid()
+                "[a-zA-Z_][a-zA-Z0-9_]*\\(\\)|" +   // Functions like gen_random_uuid()
                 "-?\\d+(\\.\\d+)?|" +               // Numeric values
-                "'[a-zA-Z0-9_\\s-]*'|" +                        // String literals
+                "'[a-zA-Z0-9_\\s-]*'|" +            // String literals
+                "true|false|" +                     // Boolean
+                "NULL" +                            // NULL
+                ")$");
+    }
+
+    public boolean isValidValue(String value) {
+        // Allow safe data values for user input (more restrictive than isValidDefaultValue):
+        // - Numeric values
+        // - String literals
+        // - Boolean values (true, false)
+        // - NULL
+        if (value == null) {
+            return true; // null is valid
+        }
+        return value.matches("^(?:" +
+                "-?\\d+(\\.\\d+)?|" +               // Numeric values
+                "'[a-zA-Z0-9_.:@#$%&*+/-]*'|" +     // String literals without spaces
                 "true|false|" +                     // Boolean
                 "NULL" +                            // NULL
                 ")$");
@@ -697,6 +714,20 @@ public class DatabaseService {
                 .collect(Collectors.toSet());
 
         return inputs.equals(columnNames);
+    }
+
+    public boolean hasValidMappingProperties(Collection<MappingDefinition> mappings) {
+        for (MappingDefinition mapping : mappings) {
+            if (!this.isValidIdentifier(mapping.input())) {
+                return false;
+            }
+
+            String output = mapping.output();
+            if (output == null || !output.matches("^credentialSubject\\.[a-zA-Z0-9_]+$")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public Collection<ColumnDto> removeIdColumn(Collection<ColumnDto> columns, String idColumn) {

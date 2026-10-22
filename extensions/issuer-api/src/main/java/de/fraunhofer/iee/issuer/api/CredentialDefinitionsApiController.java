@@ -61,7 +61,7 @@ public class CredentialDefinitionsApiController {
                     )).build();
         }
 
-        if (request.credentialType() == null || request.credentialType().isEmpty()) {
+        if (request.credentialType() == null || request.credentialType().isEmpty() || !databaseService.isValidValue(request.credentialType())) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
@@ -93,11 +93,11 @@ public class CredentialDefinitionsApiController {
                     )).build();
         }
 
-        if (request.format() == null || request.format().isEmpty()) {
+        if (request.format() == null || request.format().isEmpty() || !databaseService.isValidValue(request.format())) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(
                             "success", false,
-                            "message", "format is required"
+                            "message", "valid format is required"
                     )).build();
         }
 
@@ -115,6 +115,14 @@ public class CredentialDefinitionsApiController {
                     .entity(Map.of(
                             "success", false,
                             "message", "mappings and columns do not match"
+                    )).build();
+        }
+
+        if (!databaseService.hasValidMappingProperties(request.mappings())) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "success", false,
+                            "message", "invalid mapping properties found"
                     )).build();
         }
 
