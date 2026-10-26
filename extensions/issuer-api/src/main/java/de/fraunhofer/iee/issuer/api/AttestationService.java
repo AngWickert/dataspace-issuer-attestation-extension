@@ -14,8 +14,8 @@
 
 package de.fraunhofer.iee.issuer.api;
 
-import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
+import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 
@@ -87,7 +87,7 @@ public class AttestationService {
         return result;
     }
 
-    public String getIDColumn(String tableName, String participantContextId) {
+    public String getIdColumn(String tableName, String participantContextId) {
         // PostgreSQL converts unquoted identifiers to lowercase
         tableName = tableName.toLowerCase();
 
@@ -108,9 +108,9 @@ public class AttestationService {
         if (queryResult.succeeded()) {
             for (var attestation : queryResult.getContent()) {
                 var configuration = attestation.getConfiguration();
-                var att_tableName = (String) configuration.get("tableName");
+                var attTableName = (String) configuration.get("tableName");
 
-                if (att_tableName != null && att_tableName.equals(tableName)) {
+                if (attTableName != null && attTableName.equals(tableName)) {
                     return (String) configuration.get("idColumn");
                 }
             }
@@ -139,9 +139,9 @@ public class AttestationService {
         if (queryResult.succeeded()) {
             for (var attestation : queryResult.getContent()) {
                 var configuration = attestation.getConfiguration();
-                var att_tableName = (String) configuration.get("tableName");
+                var attTableName = (String) configuration.get("tableName");
 
-                if (att_tableName != null && att_tableName.equals(tableName)) {
+                if (attTableName != null && attTableName.equals(tableName)) {
                     return false;  // Found attestation
                 }
             }

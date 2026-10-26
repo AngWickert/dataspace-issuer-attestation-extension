@@ -6,23 +6,32 @@ edc = "0.14.0"
 edc-build = "1.1.1"
 shadow = "8.3.6"
 rsApi = "4.0.0"
+junit = "5.11.4"
+mockito = "5.14.2"
+assertj = "3.26.3"
+jersey = "3.1.9"
 
 [libraries]
 # edc libs
 edc-vault-hashicorp = { module = "org.eclipse.edc:vault-hashicorp", version.ref = "edc" }
 edc-junit = { module = "org.eclipse.edc:junit", version.ref = "edc" }
 
+# test libs
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+jersey-common = { module = "org.glassfish.jersey.core:jersey-common", version.ref = "jersey" }
+
 # issuer libs
 edc-ih-credentials-spi = { module = "org.eclipse.edc:verifiable-credential-spi", version.ref = "edc" }
 edc-ih-spi = { module = "org.eclipse.edc:identity-hub-spi", version.ref = "edc" }
 edc-did-spi = { module = "org.eclipse.edc:identity-did-spi", version.ref = "edc" }
 edc-ih-issuance-spi = { module = "org.eclipse.edc:issuerservice-issuance-spi", version.ref = "edc" }
-edc-lib-core = { module = "org.eclipse.edc:core-lib", version.ref = "edc" }
 
 # web and api libs
 edc-spi-web = { module = "org.eclipse.edc:web-spi", version.ref = "edc" }
-edc-spi-core = { module = "org.eclipse.edc:core-spi", version.ref = "edc" }
-edc-api-auth-spi = { module = "org.eclipse.edc:api-auth-spi", version.ref = "edc" }
 jakarta-rsApi = { module = "jakarta.ws.rs:jakarta.ws.rs-api", version.ref = "rsApi" }
 
 # transaction libs

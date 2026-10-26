@@ -16,13 +16,20 @@ package de.fraunhofer.iee.issuer.api;
 
 import de.fraunhofer.iee.issuer.api.model.ColumnDto;
 import de.fraunhofer.iee.issuer.api.model.CreateCredentialDefinitionsRequestDto;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.issuerservice.spi.issuance.credentialdefinition.CredentialDefinitionService;
 import org.eclipse.edc.issuerservice.spi.issuance.model.CredentialDefinition;
 import org.eclipse.edc.spi.result.Result;
+
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Map;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 
@@ -101,7 +108,7 @@ public class CredentialDefinitionsApiController {
                     )).build();
         }
 
-        var idColumn= attestationService.getIDColumn(request.tableName(), participantContextId);
+        var idColumn = attestationService.getIdColumn(request.tableName(), participantContextId);
         if (idColumn == null || idColumn.isEmpty()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of(

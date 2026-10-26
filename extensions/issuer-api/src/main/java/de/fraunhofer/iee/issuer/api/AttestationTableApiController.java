@@ -16,11 +16,18 @@ package de.fraunhofer.iee.issuer.api;
 
 import de.fraunhofer.iee.issuer.api.model.AttestationTableDto;
 import de.fraunhofer.iee.issuer.api.model.ColumnInfoDto;
-import de.fraunhofer.iee.issuer.api.model.InsertDataRequestDto;
 import de.fraunhofer.iee.issuer.api.model.DeleteDataRequestDto;
-import de.fraunhofer.iee.issuer.api.model.UpdateDataRequestDto;
+import de.fraunhofer.iee.issuer.api.model.InsertDataRequestDto;
 import de.fraunhofer.iee.issuer.api.model.TableSchemaDto;
-import jakarta.ws.rs.*;
+import de.fraunhofer.iee.issuer.api.model.UpdateDataRequestDto;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
@@ -327,7 +334,7 @@ public class AttestationTableApiController {
             return new TableSchemaDto(tableName, null, errorColumns, List.of());
         }
 
-        var idColumn = attestationService.getIDColumn(tableName, participantContextId);
+        var idColumn = attestationService.getIdColumn(tableName, participantContextId);
         if (idColumn == null) {
             var errorColumns = Map.of("error", new ColumnInfoDto("VARCHAR", false, "idColumn not found"));
             return new TableSchemaDto(tableName, null, errorColumns, List.of());

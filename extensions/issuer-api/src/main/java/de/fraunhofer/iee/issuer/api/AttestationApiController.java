@@ -16,7 +16,12 @@ package de.fraunhofer.iee.issuer.api;
 
 import de.fraunhofer.iee.issuer.api.model.AttestationDto;
 import de.fraunhofer.iee.issuer.api.model.CreateAttestationRequestDto;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.issuerservice.spi.issuance.attestation.AttestationDefinitionService;
 import org.eclipse.edc.issuerservice.spi.issuance.model.AttestationDefinition;
@@ -25,7 +30,11 @@ import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.result.Result;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 
@@ -198,7 +207,7 @@ public class AttestationApiController {
     private Result<String> createDatabaseTable(Map<String, Object> configuration) {
         // Extract tableName and columns from configuration
         var tableName = (String) configuration.get("tableName");
-        if (tableName == null || tableName.isEmpty() || !databaseService.isValidDBKey(tableName)) {
+        if (tableName == null || tableName.isEmpty() || !databaseService.isValidDbKey(tableName)) {
             return Result.failure("valid tableName is required in configuration");
         }
 
@@ -208,18 +217,18 @@ public class AttestationApiController {
         }
 
         var idColumn = (String) configuration.get("idColumn");
-        if (idColumn == null || idColumn.isEmpty() || !databaseService.isValidDBKey(idColumn)) {
+        if (idColumn == null || idColumn.isEmpty() || !databaseService.isValidDbKey(idColumn)) {
             return Result.failure("valid idColumn is required in configuration");
         }
 
         List<Map<String, Object>> columnsList = new ArrayList<>();
 
         columnsList.add(Map.of(
-            "name", "id",
-            "data_type", "UUID",
-            "nullable", false,
-            "primary_key", true,
-            "default", "gen_random_uuid()"
+                "name", "id",
+                "data_type", "UUID",
+                "nullable", false,
+                "primary_key", true,
+                "default", "gen_random_uuid()"
         ));
 
         columnsList.add(Map.of(
