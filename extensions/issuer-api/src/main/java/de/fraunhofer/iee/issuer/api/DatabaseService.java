@@ -223,11 +223,13 @@ public class DatabaseService {
         var first = true;
 
         for (var column : columns) {
+            monitor.info(column.toString());
             var name = column.columnName();
             var dataType = column.dataType();
             var defaultValue = column.defaultValue();
-            boolean nullable = Boolean.TRUE.equals(column.isNullable());
-            boolean primaryKey = Boolean.TRUE.equals(column.isPrimaryKey());
+            boolean nullable = Boolean.TRUE.equals(column.nullable());
+            boolean primaryKey = Boolean.TRUE.equals(column.primaryKey());
+            monitor.info("Nullable:  " + nullable + ", PK " + primaryKey);
 
             // Validate column name to prevent SQL Injection
             if (!isValidDbKey(name)) {
@@ -470,7 +472,21 @@ public class DatabaseService {
                         var localDateTime = java.time.LocalDateTime.parse(value);
                         return java.sql.Timestamp.valueOf(localDateTime);
                     } catch (Exception e4) {
-                        throw new IllegalArgumentException("Unable to parse timestamp: " + value);
+                        try {
+                            // Try TIMESTAMPTZ format with space and timezone: "2026-10-27 08:33:00Z" or "2026-10-27 08:33:00+02"
+                            var formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssX");
+                            var zonedDateTime = java.time.ZonedDateTime.parse(value, formatter);
+                            return java.sql.Timestamp.from(zonedDateTime.toInstant());
+                        } catch (Exception e5) {
+                            try {
+                                // Try TIMESTAMPTZ format with full timezone offset: "2026-10-27 08:33:00+02:00"
+                                var formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+                                var zonedDateTime = java.time.ZonedDateTime.parse(value, formatter);
+                                return java.sql.Timestamp.from(zonedDateTime.toInstant());
+                            } catch (Exception e6) {
+                                throw new IllegalArgumentException("Unable to parse timestamp: " + value);
+                            }
+                        }
                     }
                 }
             }
@@ -794,7 +810,24 @@ public class DatabaseService {
                     // Set id values for WHERE clause
                     for (var idColumn : idColumns) {
                         var value = ids.get(idColumn);
-                        preparedStatement.setObject(paramIndex++, value);
+                        var columnInfo = schema.columns().get(idColumn);
+                        var dataType = columnInfo.dataType().toUpperCase();
+
+                        // Parse and set value based on data type
+                        if (value == null) {
+                            preparedStatement.setObject(paramIndex++, null);
+                        } else if (dataType.equals("UUID")) {
+                            preparedStatement.setObject(paramIndex++, java.util.UUID.fromString(value), Types.OTHER);
+                        } else if (dataType.equals("INTEGER") || dataType.equals("INT4") || dataType.equals("SMALLINT")) {
+                            preparedStatement.setInt(paramIndex++, Integer.parseInt(value));
+                        } else if (dataType.equals("BIGINT") || dataType.equals("INT8")) {
+                            preparedStatement.setLong(paramIndex++, Long.parseLong(value));
+                        } else if (dataType.equals("VARCHAR") || dataType.equals("TEXT") || dataType.equals("CHAR") || dataType.equals("CHARACTER VARYING")) {
+                            preparedStatement.setString(paramIndex++, value);
+                        } else {
+                            // Fallback: treat as string
+                            preparedStatement.setString(paramIndex++, value);
+                        }
                     }
 
                     int updatedRows = preparedStatement.executeUpdate();

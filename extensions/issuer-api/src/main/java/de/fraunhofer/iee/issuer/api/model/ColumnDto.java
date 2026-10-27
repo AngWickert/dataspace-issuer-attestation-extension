@@ -18,7 +18,7 @@ public record ColumnDto(
         String columnName,
         String dataType,
         String defaultValue,
-        boolean isNullable,
-        boolean isPrimaryKey
+        boolean nullable,
+        boolean primaryKey
 ) {
 }
